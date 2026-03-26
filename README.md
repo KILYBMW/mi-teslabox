@@ -156,7 +156,7 @@ Open-source version of [teslarpi.com](https://www.teslarpi.com).
     ```bash
     cd /root
     mkdir teslabox
-    curl -o main.zip https://codeload.github.com/jheredianet/teslabox/zip/refs/heads/customS3
+    curl -o main.zip https://github.com/KILYBMW/mi-teslabox/archive/refs/heads/customS3
     unzip -o main.zip
     cp -r teslabox-customS3/* teslabox
     rm -rf teslabox-customS3
