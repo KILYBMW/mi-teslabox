@@ -5,3 +5,6 @@ node_modules
 npm-debug.log
 mnt
 **/.DS_Store
+
+# Local personal files
+local-teslabox/
