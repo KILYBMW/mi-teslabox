@@ -1,6 +1,5 @@
 .env
 config.json
-package-lock.json
 node_modules
 npm-debug.log
 mnt

@@ -1,11 +1,15 @@
 #!/bin/sh
+set -e
+REPO="KILYBMW/mi-teslabox"
+BRANCH="${TESLABOX_BRANCH:-customS3}"
+DIR="mi-teslabox-$BRANCH"
+
 cd /root
-curl --parallel -o main.zip https://codeload.github.com/mluggy/teslabox/zip/refs/heads/main
+curl -fsSL -o main.zip "https://codeload.github.com/$REPO/zip/refs/heads/$BRANCH"
 unzip -o main.zip
-cp -r teslabox-main/* teslabox
-rm -rf teslabox-main
+cp -r "$DIR"/* teslabox
+rm -rf "$DIR"
 rm main.zip
 cd teslabox
-npm install --production
-npm prune
+npm ci --omit=dev
 systemctl restart teslabox
