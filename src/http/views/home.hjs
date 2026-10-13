@@ -143,7 +143,7 @@
         <button type="submit" class="btn btn-primary">Update</button>
       </div>
       <div class="my-3">
-        <a href="/log">Log</a> &bull; <a href="https://github.com/mluggy/teslabox" target="_blank">v{{version}}</a> {{#isUpgrade}}<a href="/upgrade" target="upgrade">[Upgrade]</a> {{/isUpgrade}}&bull; {{time}} &bull; {{userIp}} &bull; {{userAgent}}</small>
+        <a href="/log">Log</a> &bull; <a href="https://github.com/KILYBMW/mi-teslabox" target="_blank">v{{version}}</a> {{#isUpgrade}}<a href="/upgrade" target="upgrade">[Upgrade]</a> {{/isUpgrade}}&bull; {{time}} &bull; {{userIp}} &bull; {{userAgent}}</small>
       </div>
       <iframe name="upgrade" class="d-none" width="1" height="1"></iframe>
       <script>
