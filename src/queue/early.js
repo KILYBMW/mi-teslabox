@@ -2,11 +2,11 @@ const config = require('../config')
 const log = require('../log')
 const queue = require('./')
 const aws = require('../aws')
+const proc = require('../exec')
 
 const _ = require('lodash')
 const async = require('async')
 const chance = require('chance').Chance()
-const { exec } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const Queue = require('better-queue')
@@ -49,10 +49,11 @@ exports.start = (cb) => {
 
         const width = input.hwVersion === 4 ? 741 : 640
 
-        let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -ss ${start} -t ${duration} -i ${input.file} -filter_complex "[0]scale=15:15 [icon]; [1]fps=${settings.fps},scale=${width}:480:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestamp}}' [image]; [image][icon]overlay=5:462" -loop 0 ${input.outFile}`
+        const filter = `[0]scale=15:15 [icon]; [1]fps=${settings.fps},scale=${width}:480:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestamp}}' [image]; [image][icon]overlay=5:462`
+        const args = ['-y', '-hide_banner', '-loglevel', 'error', '-i', settings.iconFile, '-ss', start, '-t', duration, '-i', input.file, '-filter_complex', filter, '-loop', 0, input.outFile]
 
-        log.debug(`[queue/early] ${input.id} processing: ${command}`)
-        exec(command, (err) => {
+        log.debug(`[queue/early] ${input.id} processing: ${proc.format('ffmpeg', args)}`)
+        proc.run('ffmpeg', args, (err) => {
           if (!err) {
             input.step++
           }

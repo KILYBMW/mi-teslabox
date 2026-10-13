@@ -24,6 +24,18 @@ const settings = {
 
 let db
 
+// the car name ends up inside ffmpeg filters, S3 keys and Telegram messages, so only keep letters, numbers, spaces and . ( ) -
+const sanitizeCarName = (value) => {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/[^\p{L}\p{N} .()-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[ .]+|[ .]+$/g, '')
+    .slice(0, 40) || settings.carName
+}
+
+exports.sanitizeCarName = sanitizeCarName
+
 exports.start = (cb) => {
   cb = cb || function () {}
 
@@ -37,6 +49,7 @@ exports.start = (cb) => {
   })
 
   set('sentryIgnoreAngles', settings.sentryIgnoreAngles)
+  set('carName', db.get('carName'))
 
   cb()
 }
@@ -47,6 +60,10 @@ exports.get = (key) => {
 
 const set = (key, value) => {
   switch (key) {
+    case 'carName':
+      value = sanitizeCarName(value)
+      break
+
     case 'logLevel':
       value = ['debug', 'info', 'warn', 'error', 'fatal'].includes(value) ? value : settings[key]
       break

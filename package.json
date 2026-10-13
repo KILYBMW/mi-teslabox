@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "development": "nodemon src/index.js",
-    "test": "echo \"TEST OK\""
+    "test": "node --test test/security.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.421.0",

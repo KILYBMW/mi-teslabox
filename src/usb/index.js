@@ -1,6 +1,7 @@
 const log = require('../log')
 const config = require('../config')
 const queue = require('../queue')
+const proc = require('../exec')
 
 const _ = require('lodash')
 const async = require('async')
@@ -109,7 +110,7 @@ exports.start = (cb) => {
                       return cb()
                     }
 
-                    exec(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 ${currentFile}`, (err, stdout) => {
+                    proc.run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=s=x:p=0', currentFile], (err, stdout) => {
                       hwVersion = stdout.includes('1448x938') || stdout.includes('2896x1876') ? 4 : 3
                       log.debug(`[usb] determined hwVersion: ${hwVersion}`)
                       cb()
@@ -209,7 +210,7 @@ exports.start = (cb) => {
 
                         async.series([
                           (cb) => {
-                            exec(`ffprobe -hide_banner -v quiet -show_entries format=duration -i ${videoFile}`, (err, stdout) => {
+                            proc.run('ffprobe', ['-hide_banner', '-v', 'quiet', '-show_entries', 'format=duration', '-i', videoFile], (err, stdout) => {
                               if (!err && stdout.includes('duration=')) {
                                 fileDuration = Math.ceil(stdout.split('duration=')[1].split('\n')[0])
                               }

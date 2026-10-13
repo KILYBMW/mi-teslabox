@@ -209,7 +209,7 @@ Note: email notifications relied on Amazon SES and are **not** available in this
 3. Make sure TeslaBox is connected to your home network via ethernet cable or home WiFi
 4. Browse to the hostname you have setup to change these settings if needed:
 
-    - Car name (associates with each upload and notification. Default: My Tesla). Avoid special characters such as `_`, `*`, `[` or a backtick, as they break the formatting of Telegram messages
+    - Car name (associates with each upload and notification. Default: My Tesla). Only letters, numbers, spaces and `. ( ) -` are kept (up to 40 characters); anything else is removed and `_` becomes a space
     - Log level (log verbosity. Default: Warn)
     - Email recipients (not available in this version, leave empty)
     - Telegram recipients (comma seperated list of Telegram Chat IDs to notify)

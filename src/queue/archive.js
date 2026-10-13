@@ -3,11 +3,11 @@ const log = require('../log')
 const ping = require('../ping')
 const aws = require('../aws')
 const queue = require('../queue')
+const proc = require('../exec')
 
 const _ = require('lodash')
 const async = require('async')
 const chance = require('chance').Chance()
-const { exec } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const Queue = require('better-queue')
@@ -82,10 +82,11 @@ exports.start = (cb) => {
             async.eachOfSeries(files, (file, angle, cb) => {
               input.files[`${timestamp}-${file.angle}`] = input.files[`${timestamp}-${angle}`] || path.join(settings.ramDir, `${chance.hash()}.log`)
 
-              const command = `ffmpeg -y -hide_banner -loglevel error -ss ${file.start} -t ${file.duration} -i ${file.file} -vf select='not(mod(n\\,${settings.cinematicFrames}))',select='gte(scene\\,0)',metadata=print:file=${input.files[`${timestamp}-${file.angle}`]} -an -f null -`
+              const filter = `select=not(mod(n\\,${settings.cinematicFrames})),select=gte(scene\\,0),metadata=print:file=${input.files[`${timestamp}-${file.angle}`]}`
+              const args = ['-y', '-hide_banner', '-loglevel', 'error', '-ss', file.start, '-t', file.duration, '-i', file.file, '-vf', filter, '-an', '-f', 'null', '-']
 
-              log.debug(`[queue/archive] ${input.id} detecting: ${command}`)
-              exec(command, (err) => {
+              log.debug(`[queue/archive] ${input.id} detecting: ${proc.format('ffmpeg', args)}`)
+              proc.run('ffmpeg', args, (err) => {
                 if (err) {
                   return cb(err)
                 }
@@ -147,33 +148,35 @@ exports.start = (cb) => {
                 scenes.push({ angle: input.lastAngle, start, duration, key })
               }
 
-              let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile}`
+              const args = ['-y', '-hide_banner', '-loglevel', 'error', '-i', settings.iconFile]
               _.each(scenes, (scene) => {
-                command += ` -ss ${scene.start} -t ${scene.duration} -i ${files[scene.angle].file}`
+                args.push('-ss', scene.start, '-t', scene.duration, '-i', files[scene.angle].file)
               })
 
-              command += ` -filter_complex "[0]scale=25:25 [icon]; `
+              let filter = `[0]scale=25:25 [icon]; `
 
               _.each(scenes, (scene) => {
                 if (input.hwVersion === 4 && scene.angle === 'front') {
-                  command += `[${scene.key}]scale=1448:938 [v${scene.key}]; `
+                  filter += `[${scene.key}]scale=1448:938 [v${scene.key}]; `
                 }
               })
 
               _.each(scenes, (scene) => {
                 if (input.hwVersion === 4 && scene.angle === 'front') {
-                  command += `[v${scene.key}]`
+                  filter += `[v${scene.key}]`
                 } else {
-                  command += `[${scene.key}]`
+                  filter += `[${scene.key}]`
                 }
               })
 
               const heightDelta = input.hwVersion === 4 ? -22 : 0
 
-              command += `concat=n=${scenes.length}:v=1 [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${930 + heightDelta}:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${928 + heightDelta}" -preset ${settings.preset} -r 24 -crf ${crf} ${input.files[timestamp]}`
+              filter += `concat=n=${scenes.length}:v=1 [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${930 + heightDelta}:text='TeslaBox ${input.carName} ${_.upperFirst(input.event.type)} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${928 + heightDelta}`
 
-              log.debug(`[queue/archive] ${input.id} processing: ${command}`)
-              exec(command, (err) => {
+              args.push('-filter_complex', filter, '-preset', settings.preset, '-r', 24, '-crf', crf, input.files[timestamp])
+
+              log.debug(`[queue/archive] ${input.id} processing: ${proc.format('ffmpeg', args)}`)
+              proc.run('ffmpeg', args, (err) => {
                 if (!err) {
                   input.caches[timestamp] = true
                   _.each(['front', 'right', 'back', 'left'], (angle) => {
@@ -186,7 +189,13 @@ exports.start = (cb) => {
               })
             })
           } else {
-            let command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -ss ${front.start} -t ${front.duration} -i ${front.file} -ss ${front.start} -t ${front.duration} -i ${right.file} -ss ${front.start} -t ${front.duration} -i ${back.file} -ss ${front.start} -t ${front.duration} -i ${left.file} -t ${front.duration} -filter_complex "[0]scale=25:25 [icon]; `
+            const args = ['-y', '-hide_banner', '-loglevel', 'error', '-i', settings.iconFile]
+            _.each([front, right, back, left], (video) => {
+              args.push('-ss', front.start, '-t', front.duration, '-i', video.file)
+            })
+            args.push('-t', front.duration)
+
+            let filter = `[0]scale=25:25 [icon]; `
 
             const overlayWidth = input.hwVersion === 4 ? 1930 : 1920
             const largeWidth = input.hwVersion === 4 ? 1448 : 1440
@@ -197,26 +206,28 @@ exports.start = (cb) => {
 
             switch (input.event.angle) {
               case 'front':
-                command += `[1]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [front][back] overlay=${largeWidth}:0 [fb]; [fb][left] overlay=${largeWidth}:${smallHeight} [fbl]; [fbl][right] overlay=${largeWidth}:${smallHeight * 2}`
+                filter += `[1]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [front][back] overlay=${largeWidth}:0 [fb]; [fb][left] overlay=${largeWidth}:${smallHeight} [fbl]; [fbl][right] overlay=${largeWidth}:${smallHeight * 2}`
                 break
 
               case 'right':
-                command += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [right][left] overlay=${largeWidth}:0 [rl]; [rl][front] overlay=${largeWidth}:${smallHeight} [rlf]; [rlf][back] overlay=${largeWidth}:${smallHeight * 2}`
+                filter += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [right][left] overlay=${largeWidth}:0 [rl]; [rl][front] overlay=${largeWidth}:${smallHeight} [rlf]; [rlf][back] overlay=${largeWidth}:${smallHeight * 2}`
                 break
 
               case 'back':
-                command += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [back][front] overlay=${largeWidth}:0 [bf]; [bf][left] overlay=${largeWidth}:${smallHeight} [bfl]; [bfl][right] overlay=${largeWidth}:${smallHeight * 2}`
+                filter += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [back]; [4]scale=${smallWidth}:${smallHeight} [left]; [back][front] overlay=${largeWidth}:0 [bf]; [bf][left] overlay=${largeWidth}:${smallHeight} [bfl]; [bfl][right] overlay=${largeWidth}:${smallHeight * 2}`
                 break
 
               case 'left':
-                command += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [left]; [left][right] overlay=${largeWidth}:0 [lr]; [lr][front] overlay=${largeWidth}:${smallHeight} [lrf]; [lrf][back] overlay=${largeWidth}:${smallHeight * 2}`
+                filter += `[1]scale=${smallWidth}:${smallHeight} [front]; [2]scale=${smallWidth}:${smallHeight} [right]; [3]scale=${smallWidth}:${smallHeight} [back]; [4]scale=${largeWidth}:${largeHeight},pad=${overlayWidth}:${largeHeight} [left]; [left][right] overlay=${largeWidth}:0 [lr]; [lr][front] overlay=${largeWidth}:${smallHeight} [lrf]; [lrf][back] overlay=${largeWidth}:${smallHeight * 2}`
                 break
             }
 
-            command += ` [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${1050 + heightDelta}:text='TeslaBox ${input.carName.replace(/'/g, '\\')} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${1048 + heightDelta}" -preset ${settings.preset} -r 24 -crf ${crf} ${input.files[timestamp]}`
+            filter += ` [all]; [all]drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=25:borderw=1:bordercolor=${settings.borderColor}@1.0:x=38:y=${1050 + heightDelta}:text='TeslaBox ${input.carName} ${_.upperFirst(input.event.type)}${input.event.type === 'sentry' ? ` (${_.upperFirst(input.event.angle)})` : ''} %{pts\\:localtime\\:${timestampSeconds}}' [video]; [video][icon]overlay=8:${1048 + heightDelta}`
 
-            log.debug(`[queue/archive] ${input.id} processing: ${command}`)
-            exec(command, (err) => {
+            args.push('-filter_complex', filter, '-preset', settings.preset, '-r', 24, '-crf', crf, input.files[timestamp])
+
+            log.debug(`[queue/archive] ${input.id} processing: ${proc.format('ffmpeg', args)}`)
+            proc.run('ffmpeg', args, (err) => {
               if (!err) {
                 input.caches[timestamp] = true
                 fs.rm(front.file, () => {})
@@ -258,10 +269,10 @@ exports.start = (cb) => {
           return cb()
         }
 
-        const command = `ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i ${input.chaptersFile} -c copy ${input.concatFile}`
+        const args = ['-y', '-hide_banner', '-loglevel', 'error', '-f', 'concat', '-safe', 0, '-i', input.chaptersFile, '-c', 'copy', input.concatFile]
 
-        log.debug(`[queue/archive] ${input.id} concating: ${command}`)
-        exec(command, (err) => {
+        log.debug(`[queue/archive] ${input.id} concating: ${proc.format('ffmpeg', args)}`)
+        proc.run('ffmpeg', args, (err) => {
           if (!err) {
             input.step++
             _.each(_.values(input.files), (file) => {
@@ -279,10 +290,10 @@ exports.start = (cb) => {
           return cb()
         }
 
-        const command = `ffmpeg -y -hide_banner -loglevel error -i ${input.concatFile} -f lavfi -i anullsrc -c:v copy -c:a aac -shortest ${input.outFile}`
+        const args = ['-y', '-hide_banner', '-loglevel', 'error', '-i', input.concatFile, '-f', 'lavfi', '-i', 'anullsrc', '-c:v', 'copy', '-c:a', 'aac', '-shortest', input.outFile]
 
-        log.debug(`[queue/archive] ${input.id} silencing: ${command}`)
-        exec(command, (err) => {
+        log.debug(`[queue/archive] ${input.id} silencing: ${proc.format('ffmpeg', args)}`)
+        proc.run('ffmpeg', args, (err) => {
           if (!err) {
             input.step++
             fs.rm(input.concatFile, () => {})

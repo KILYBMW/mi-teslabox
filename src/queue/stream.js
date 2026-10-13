@@ -2,13 +2,13 @@ const config = require('../config')
 const log = require('../log')
 const ping = require('../ping')
 const aws = require('../aws')
+const proc = require('../exec')
 
 const _ = require('lodash')
 const async = require('async')
 const chance = require('chance').Chance()
 const fs = require('fs')
 const path = require('path')
-const { exec } = require('child_process')
 const Queue = require('better-queue')
 
 const settings = {
@@ -51,31 +51,31 @@ exports.start = (cb) => {
 
         const crf = settings.qualityCrfs[input.streamQuality]
 
-        let command
+        let filter
         let width
         switch (input.streamQuality) {
           case 'highest':
           case 'high':
             width = input.hwVersion === 4 ? 1186 : 1024
-            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=18:18 [icon]; [1]scale=${width}:768,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=14:borderw=1:bordercolor=${settings.borderColor}@1.0:x=25:y=750:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:747"`
+            filter = `[0]scale=18:18 [icon]; [1]scale=${width}:768,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=14:borderw=1:bordercolor=${settings.borderColor}@1.0:x=25:y=750:text='TeslaBox ${input.carName} (${_.upperFirst(input.angle)}) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:747`
             break
 
           case 'low':
           case 'lowest':
             width = input.hwVersion === 4 ? 370 : 320
-            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=12:12 [icon]; [1]scale=${width}:240,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=9:borderw=1:bordercolor=${settings.borderColor}@1.0:x=19:y=228:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:227"`
+            filter = `[0]scale=12:12 [icon]; [1]scale=${width}:240,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=9:borderw=1:bordercolor=${settings.borderColor}@1.0:x=19:y=228:text='TeslaBox ${input.carName} (${_.upperFirst(input.angle)}) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:227`
             break
 
           default:
             width = input.hwVersion === 4 ? 742 : 640
-            command = `ffmpeg -y -hide_banner -loglevel error -i ${settings.iconFile} -i ${input.tempFile} -filter_complex "[0]scale=15:15 [icon]; [1]scale=${width}:480,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName.replace(/'/g, '\\')} \(${_.upperFirst(input.angle)}\) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:462"`
+            filter = `[0]scale=15:15 [icon]; [1]scale=${width}:480,drawtext=fontfile='${settings.fontFile}':fontcolor=${settings.fontColor}:fontsize=12:borderw=1:bordercolor=${settings.borderColor}@1.0:x=22:y=465:text='TeslaBox ${input.carName} (${_.upperFirst(input.angle)}) %{pts\\:localtime\\:${input.timestamp}}' [video]; [video][icon]overlay=5:462`
         }
 
-        command += ` -preset ${settings.preset} -crf ${crf} -r 24 ${input.file}`
+        const args = ['-y', '-hide_banner', '-loglevel', 'error', '-i', settings.iconFile, '-i', input.tempFile, '-filter_complex', filter, '-preset', settings.preset, '-crf', crf, '-r', 24, input.file]
 
-        log.debug(`[queue/stream] ${input.id} processing: ${command}`)
+        log.debug(`[queue/stream] ${input.id} processing: ${proc.format('ffmpeg', args)}`)
 
-        exec(command, (err) => {
+        proc.run('ffmpeg', args, (err) => {
           if (!err) {
             input.step++
             fs.rm(input.tempFile, () => {})
@@ -89,7 +89,9 @@ exports.start = (cb) => {
           return cb()
         }
 
-        exec(`${input.isStreamCopy ? 'cp' : 'mv'} ${input.file} ${input.outFile}`, (err) => {
+        const move = input.isStreamCopy ? fs.copyFile : fs.rename
+
+        move(input.file, input.outFile, (err) => {
           if (!err) {
             input.step++
             streams[input.angle] = input.folder
