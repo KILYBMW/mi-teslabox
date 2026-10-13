@@ -63,7 +63,7 @@ Note: email notifications relied on Amazon SES and are **not** available in this
 ### Raspberry Pi
 
 1. Download and run [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
-2. Under Operating System, choose Raspberry Pi OS *Lite* (64-bit)
+2. Under Operating System, choose Raspberry Pi OS *Lite* (64-bit). These instructions have been tested with the *Trixie* release (Debian 13) on a Raspberry Pi 4, with Node.js 20 and a Tesla with HW3 cameras
 3. Under Storage, choose the SD card you wish to format
 4. Under settings:
    - Set hostname to whatever you like (i.e model3.local)
@@ -92,7 +92,7 @@ Note: email notifications relied on Amazon SES and are **not** available in this
     sed -i 's/rootwait/rootwait modules-load=dwc2,g_mass_storage/g' /boot/firmware/cmdline.txt
     ```
 
-10. Setup other Wifi(s) with using ```nmtui``` (if you will use other than the one you setup when burning the SD)
+10. Setup other Wifi(s) with using ```nmtui``` (if you will use other than the one you setup when burning the SD). Note older installs (Raspberry Pi OS Bullseye) kept their WiFis in ```/etc/wpa_supplicant/wpa_supplicant.conf```, which is not used anymore: add those networks again with ```nmtui```
 
 11. Allocate USB space with all available storage (minus 10GB, or more if you plan on using TeslaMate):
 
@@ -118,9 +118,6 @@ Note: email notifications relied on Amazon SES and are **not** available in this
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
     apt update && apt upgrade -y
     apt install -y nodejs ffmpeg
-    sed -i 's/exit 0//g' /etc/rc.local
-    echo "/usr/sbin/modprobe g_mass_storage >> /var/log/syslog 2>&1" >> /etc/rc.local
-    echo "exit 0" >> /etc/rc.local
     ```
 
 14. Install Tailscale and click the authorize link to add this machine to your network. If you get an error, reboot the box, run ```sudo -i`` and try this step again.
@@ -197,7 +194,11 @@ Note: email notifications relied on Amazon SES and are **not** available in this
       systemctl status teslabox
       ```
 
-      If the status is Green and shows active (running), continue to setup.
+      If the status is Green and shows active (running), reboot the box so the USB module loaded from ```cmdline.txt``` becomes active, then continue to setup:
+
+      ```bash
+      reboot
+      ```
 
 ## Setup
 
@@ -208,7 +209,7 @@ Note: email notifications relied on Amazon SES and are **not** available in this
 3. Make sure TeslaBox is connected to your home network via ethernet cable or home WiFi
 4. Browse to the hostname you have setup to change these settings if needed:
 
-    - Car name (associates with each upload and notification. Default: My Tesla)
+    - Car name (associates with each upload and notification. Default: My Tesla). Avoid special characters such as `_`, `*`, `[` or a backtick, as they break the formatting of Telegram messages
     - Log level (log verbosity. Default: Warn)
     - Email recipients (not available in this version, leave empty)
     - Telegram recipients (comma seperated list of Telegram Chat IDs to notify)
