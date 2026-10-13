@@ -73,9 +73,6 @@ Note: email notifications relied on Amazon SES and are **not** available in this
    - Set local settings with your Time zone
    - Check "Eject media when finished"
    - Click SAVE
-
-        ![image](help/rpi_custom.png)
-
 5. Click WRITE and wait for the process to complete and verify
 6. Eject the SD card, insert to your Raspberry Pi and boot it up
 7. SSH to the hostname you have setup with the credentials you chose (i.e ssh <pi@model3.local>)
