@@ -300,6 +300,8 @@ There might be risks involved with running TeslaBox under certain tempature cond
 
 There might be AWS costs associated with archiving (both storing and viewing clips). See [S3 pricing](https://aws.amazon.com/s3/pricing/).
 
+The video links sent in Telegram and email are pre-signed URLs that **expire after 7 days**. The video stays in your bucket, but after that you must open it from your S3/MinIO console. The expiry is `signedExpirySeconds` in `src/queue/early.js` and `src/queue/archive.js`.
+
 There might be 3G/4G bandwidth costs associated with your WiFi connectivity. If you are worried you can have TeslaBox connect only to your home or public WiFi.
 
 ## License
