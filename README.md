@@ -4,7 +4,7 @@ Open-source version of [teslarpi.com](https://www.teslarpi.com).
 
 1. Instant notification, along with a video clip, for each dashcam/sentry event
 2. Unmetered live-stream while in park or driving
-3. Backup all events and streams to S3
+3. Backup all events and streams to your own S3-compatible storage (i.e MinIO)
 
     <img src="help/sample.gif" alt="sample video"/>
 
@@ -17,49 +17,33 @@ Open-source version of [teslarpi.com](https://www.teslarpi.com).
 
 ## Software installation
 
-### Amazon Web Services (required for archiving)
+### S3 storage with MinIO (required for archiving)
 
-1. [Create an account or sign in to AWS](https://aws.amazon.com/). You may skip these steps is you are planning to use other S3 bucket or provider.
-2. [Create a new S3 bucket](https://s3.console.aws.amazon.com/s3/buckets)
-   - Bucket name: however you'd like (must be globally unique)
-   - AWS region: either us-east-1 or the one closest to you
-   - ACLs Disabled
-   - Block *all* public access
-   - Bucket versioning: Disable
-   - Default encryption: Server-side encryption with Amazon S3 managed keys (SSE-S3) and Buckey Key: Enable
-   - Click "Create Bucket"
-3. [Create a new policy](https://us-east-1.console.aws.amazon.com/iamv2/home#/policies/create)
-   - Service: S3
-   - Actions allowed: GetObject and PutObject
-   - Resources: Add ARN to restrict access
-   - Enter your Bucket name from 2.1 and check "Any object name"
-   - Click "Add ARNs"
-   - Click "Next"
-   - Policy name: "teslabox"
-   - Click "Create policy"
-4. [Add a new user](https://us-east-1.console.aws.amazon.com/iamv2/home#/users/create)
-   - User name: "teslabox"
-   - Do NOT select "Provide user access to the AWS Managment Console - optional"
-   - Click "Next"
-   - Select "Attach policies directly"
-   - Find "teslabox" in the list of Permissions policies and check it
-   - Click "Next"
-   - Click "Create user"
-   - Click on "teslabox" and under "Access keys" click "Create access key"
-   - Select "Applicaiton running outside AWS" and click "Next" then click "Create access key"
-   - Copy both the Access key and Secret access key
-5. If you want to be notified by email:
-   - [Click the "teslabox" policy](https://us-east-1.console.aws.amazon.com/iamv2/home#/policies)
-   - Under "Permissions" click "Edit", then click "Visual"
-   - Click "Add more permissions"
-   - Service: SES v2
-   - Actions allowed: SendEmail
-   - Under "identity" check "Any in this account"
-   - Click "Next" and "Save changes"
-   - [Under SES > Verified identities](https://console.aws.amazon.com/ses/home?#/verified-identities) click "Create identity. Make sure you are in the same region as the S3 bucket
-   - Choose either Domain or Email address with the address(es) you want to notify
-   - Verify the identity as per the instructions
-   - Note, you can only notify by email address(es) you have verified
+This version uses your own S3-compatible storage, such as [MinIO](https://min.io/docs/minio/linux/index.html), instead of Amazon Web Services. Any S3-compatible service should work, but the steps below use MinIO.
+
+1. Install MinIO on a server you control (or use an existing one). The server must be reachable by TeslaBox from the car, and by your phone when you open the video links, so publish it with HTTPS under a domain name (i.e `https://minio.mydomain.com`).
+2. In the MinIO Console, under *Buckets*, create a new bucket (i.e `teslabox`). Keep it private and leave versioning disabled.
+3. Under *Identity > Policies*, create a policy named `teslabox` limited to that bucket:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": ["s3:GetObject", "s3:PutObject"],
+         "Resource": ["arn:aws:s3:::teslabox/*"]
+       }
+     ]
+   }
+   ```
+
+   Replace `teslabox` with your bucket name.
+4. Under *Identity > Users*, create a user named `teslabox` and assign it the `teslabox` policy.
+5. Sign in as that user (or, as admin, open its page) and under *Access Keys* create a new access key. Copy both the Access Key and the Secret Key.
+6. Keep note of the endpoint URL (i.e `https://minio.mydomain.com`) and the bucket name. You will need them when creating the TeslaBox service. If your MinIO has no custom region, use `us-east-1`.
+
+Note: email notifications relied on Amazon SES and are **not** available in this version. Leave *Email recipients* empty and use Telegram.
 
 ### Tailscale (required for remote access)
 
@@ -173,7 +157,7 @@ Open-source version of [teslarpi.com](https://www.teslarpi.com).
       ```
 
     - Paste this, with each Environment variable appended with its =value (if needed)
-    - If you are planning to use a bucket from another compatible S3 Cloud Service or your own bucket (ex. Minio), uncomment the S3_ENDPOINT environment variable and fill it up with the corresponding endpoint URL
+    - Fill in the S3 variables with the values from your MinIO setup (endpoint, bucket, access key and secret key)
 
       ```bash
       [Unit]
@@ -183,13 +167,13 @@ Open-source version of [teslarpi.com](https://www.teslarpi.com).
       [Service]
       Environment="NODE_ENV=production"
 
-      # To enable archive and/or email, enter these, replacing *** with the actual values (i.e    Environment="AWS_DEFAULT_REGION=us-east-1")
-      # Uncomment Environment="S3_ENDPOINT=***" if you use other compatible bucket (ex. https://minio.mydomain.com or     https://s3.eu-west-2.wasabisys.com)
+      # To enable archiving, enter these, replacing *** with the actual values from your MinIO setup
+      # (the variable names keep the AWS_ prefix, but they hold your MinIO access key, secret key and bucket)
       Environment="AWS_ACCESS_KEY_ID=***"
       Environment="AWS_SECRET_ACCESS_KEY=***"
-      Environment="AWS_DEFAULT_REGION=***"
+      Environment="AWS_DEFAULT_REGION=us-east-1"
       Environment="AWS_S3_BUCKET=***"
-      #Environment="S3_ENDPOINT=***"
+      Environment="S3_ENDPOINT=https://minio.mydomain.com"
 
       # To enable telegram notification, enter this
       Environment="TELEGRAM_ACCESS_TOKEN=***"
@@ -229,7 +213,7 @@ Open-source version of [teslarpi.com](https://www.teslarpi.com).
 
     - Car name (associates with each upload and notification. Default: My Tesla)
     - Log level (log verbosity. Default: Warn)
-    - Email recipients (comma seperated list of email addresses to notify)
+    - Email recipients (not available in this version, leave empty)
     - Telegram recipients (comma seperated list of Telegram Chat IDs to notify)
     - Notifications (notifications to send). Low storage to alert when the box has little to no space. Early warning to send an immediate text on each event (~10 seconds). Early warning video to send a short video on each event (~30    seconds). Full video to send the entire video (~10 minutes), with Telegram declining files > 20MB (Default: Low    storage & Early warning video)
     - Create dashcam clips (uploads and notifies of dashcam/track events. Default: Enabled)
@@ -264,7 +248,7 @@ Settings are explained above under Initial setup and always available at: http:/
 
 Tesla would recognize the TeslaBox as standard USB. You can click save, honk or use voice commands to capture dashcam clips as you would normally. Just make sure the TeslaBox is connected properly and the "Record/ing" has a Red dot on the car quick-settings screen.
 
-If dashcam processing is enabled, clips will be uploaded to S3. If email and/or Telegram has been set up, you'll be notified there with a quick preview and a link to both the event location map and the full video.
+If dashcam processing is enabled, clips will be uploaded to S3. If Telegram has been set up, you'll be notified there with a quick preview and a link to both the event location map and the full video.
 
 The clip would start X seconds prior to the event ("red dot") and up to 10 seconds following the event. X is settable under *Admin > Dashcam duration*.
 
@@ -298,9 +282,9 @@ You can delete individual (or all) videos under "Safety" or through the Dashcam 
 
 There might be risks involved with running TeslaBox under certain tempature conditions, TeslaBox not recording dashcam or sentry videos and/or TeslaBox not uploading, delivering or notifying you of such events. Always make sure Tesla recognizes a valid USB storage, and that videos are saved and viewable through the built-in Dashcam app.
 
-There might be AWS costs associated with archiving (both storing and viewing clips). See [S3 pricing](https://aws.amazon.com/s3/pricing/).
+Archived clips use the storage of your own MinIO server. Keep an eye on its free space, as TeslaBox does not delete old clips from the bucket.
 
-The video links sent in Telegram and email are pre-signed URLs that **expire after 7 days**. The video stays in your bucket, but after that you must open it from your S3/MinIO console. The expiry is `signedExpirySeconds` in `src/queue/early.js` and `src/queue/archive.js`.
+The video links sent in Telegram are pre-signed URLs that **expire after 7 days**. The video stays in your bucket, but after that you must open it from your S3/MinIO console. The expiry is `signedExpirySeconds` in `src/queue/early.js` and `src/queue/archive.js`.
 
 There might be 3G/4G bandwidth costs associated with your WiFi connectivity. If you are worried you can have TeslaBox connect only to your home or public WiFi.
 
