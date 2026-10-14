@@ -266,7 +266,7 @@ Dashcam and sentry videos are always available through the Dashcam app on your T
 
 This is similar to Tesla's Live Sentry, but has no time limit, can stream while driving plus available on any browser. To some extent, you can use it as a security camera.
 
-There is, however, a 1 minute delay for each clip which is the time it takes to close and prepare the file. You can choose what angles to stream and switch between them. Video would automatically progress to the next minute when it is done playing.
+There is, however, a delay of about 1.5 to 2 minutes: the car records one-minute clips, and each one has to be closed by the car, detected and processed before it can be played. On a Raspberry Pi 4 the processing takes about 13 seconds with *Medium* quality and 35 to 40 seconds with *High*, so a lower stream quality gives a shorter delay. You can choose what angles to stream and switch between them. Video would automatically progress to the next minute when it is done playing, and resume by itself if the next clip is not ready yet.
 
 If sentry mode is disabled or car is asleep, you may not see any new streams.
 
