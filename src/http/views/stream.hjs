@@ -77,6 +77,11 @@
               document.getElementById(angle).innerHTML = `<a href="#" onclick="play('${angle}', '${dates[angle]}')"><i class="bi-caret-${caret}-fill"></i></a> <a href="#" onclick="play('${angle}', '${dates[angle]}')">${label}</a>`
             }
           }
+
+          // the video may have ended before the next clip was ready, so carry on as soon as it is
+          if (lastPlay.length && media.ended && dates[lastPlay[0]] > lastPlay[1]) {
+            play(lastPlay[0], dates[lastPlay[0]])
+          }
         })
         .catch(err => console.log(err))
       }
