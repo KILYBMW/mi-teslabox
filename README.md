@@ -105,6 +105,15 @@ Note: email notifications relied on Amazon SES and are **not** available in this
     echo "options g_mass_storage file=/usb.bin removable=1 ro=0 stall=0 iSerialNumber=123456" > /etc/modprobe.d/g_mass_storage.conf
     ```
 
+    The USB module must be loaded only after the root filesystem is writable. Otherwise, on some boots (about 1 in 6 in our tests) the Pi offers the drive to the car as *read only* and the car silently stops recording. Make systemd load the module in the right order:
+
+    ```bash
+    mkdir -p /etc/systemd/system/systemd-modules-load.service.d
+    printf '[Unit]\nAfter=systemd-remount-fs.service\n' > /etc/systemd/system/systemd-modules-load.service.d/after-remount.conf
+    ```
+
+    After the reboot at the end of the installation you can check it with ```journalctl -k -b | grep "LUN:"```: the line must say ```removable file: /usb.bin``` and never ```removable read only file```.
+
 12. Allocate RAM drive with 50% of available memory:
 
     ```bash
