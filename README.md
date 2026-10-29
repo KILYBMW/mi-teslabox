@@ -94,16 +94,7 @@ Note: email notifications relied on Amazon SES and are **not** available in this
 
 10. Setup other Wifi(s) with using ```nmtui``` (if you will use other than the one you setup when burning the SD). Note older installs (Raspberry Pi OS Bullseye) kept their WiFis in ```/etc/wpa_supplicant/wpa_supplicant.conf```, which is not used anymore: add those networks again with ```nmtui```
 
-11. Install Tailscale (do it now, so you can reach the box remotely from here on) and click the authorize link to add this machine to your network. If you get an error, reboot the box, run ```sudo -i``` and try this step again.
-
-    ```bash
-    curl -fsSL https://tailscale.com/install.sh | sh
-    tailscale up
-    ```
-
-12. To avoid connectivity issues after running Teslabox for a long time, "Disable key expiry" on each device in your Tailscale network (thanks @genadyo)
-
-13. Allocate USB space with all available storage (minus 10GB, or more if you plan on using TeslaMate):
+11. Allocate USB space with all available storage (minus 10GB, or more if you plan on using TeslaMate):
 
     ```bash
     mkdir -p /mnt/usb
@@ -123,20 +114,29 @@ Note: email notifications relied on Amazon SES and are **not** available in this
 
     After the reboot at the end of the installation you can check it with ```journalctl -k -b | grep "LUN:"```: the line must say ```removable file: /usb.bin``` and never ```removable read only file```.
 
-14. Allocate RAM drive with 50% of available memory:
+12. Allocate RAM drive with 50% of available memory:
 
     ```bash
     mkdir -p /mnt/ram
     echo "tmpfs /mnt/ram tmpfs nodev,nosuid,size=50% 0 0" >> /etc/fstab
     ```
 
-15. Update system packages, upgrade and install required software:
+13. Update system packages, upgrade and install required software:
 
     ```bash
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
     apt update && apt upgrade -y
     apt install -y nodejs ffmpeg
     ```
+
+14. Install Tailscale and click the authorize link to add this machine to your network. If you get an error, reboot the box, run ```sudo -i`` and try this step again.
+
+    ```bash
+    curl -fsSL https://tailscale.com/install.sh | sh
+    tailscale up
+    ```
+
+15. To avoid connectivity issues after running Teslabox for a long time, "Disable key expiry" on each device in your Tailscale network (thanks @genadyo)
 
 16. Download and install TeslaBox and packages:
 
