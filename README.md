@@ -129,7 +129,7 @@ Note: email notifications relied on Amazon SES and are **not** available in this
     apt install -y nodejs ffmpeg
     ```
 
-14. Install Tailscale and click the authorize link to add this machine to your network. If you get an error, reboot the box, run ```sudo -i`` and try this step again.
+14. Install Tailscale and click the authorize link to add this machine to your network. If you get an error, reboot the box, run ```sudo -i``` and try this step again.
 
     ```bash
     curl -fsSL https://tailscale.com/install.sh | sh
